@@ -18,7 +18,7 @@ with zipfile.ZipFile(io.BytesIO(response.content)) as z:
 
 print("Processing stops...")
 stops = []
-stops_by_id = {}
+valid_stop_ids = set()
 for line in stops_content.splitlines()[1:]:
     parts = line.split(",")
     if len(parts) >= 6:
@@ -26,17 +26,18 @@ for line in stops_content.splitlines()[1:]:
             lat = float(parts[4])
             lon = float(parts[5])
             if 29 < lat < 34 and 34 < lon < 36:
-                stop = {
+                stops.append({
                     "id": parts[0],
                     "name": parts[2].strip('"'),
                     "lat": lat,
                     "lon": lon,
                     "code": parts[1] if len(parts) > 1 else None
-                }
-                stops.append(stop)
-                stops_by_id[parts[0]] = stop
+                })
+                valid_stop_ids.add(parts[0])
         except:
             pass
+
+print(f"Stops: {len(stops)}")
 
 print("Processing routes...")
 routes = []
@@ -52,14 +53,18 @@ for line in routes_content.splitlines()[1:]:
         except:
             pass
 
+print(f"Routes: {len(routes)}")
+
 print("Processing trips...")
 trip_to_route = {}
-for line in trips_content.splitlines()[1:50000]:
+for line in trips_content.splitlines()[1:]:
     parts = line.split(",")
     if len(parts) >= 3:
         trip_to_route[parts[2]] = parts[0]
 
-print("Processing stop_times (sample)...")
+print(f"Trips: {len(trip_to_route)}")
+
+print("Processing stop_times...")
 route_stops = defaultdict(set)
 count = 0
 for line in stop_times_content.splitlines()[1:]:
@@ -67,14 +72,17 @@ for line in stop_times_content.splitlines()[1:]:
     if len(parts) >= 4:
         trip_id = parts[0]
         stop_id = parts[3]
-        if trip_id in trip_to_route and stop_id in stops_by_id:
+        if trip_id in trip_to_route and stop_id in valid_stop_ids:
             route_id = trip_to_route[trip_id]
-            route_stops[route_id].add(stop_id)
+            if len(route_stops[route_id]) < 40:
+                route_stops[route_id].add(stop_id)
     count += 1
-    if count > 500000:
-        break
+    if count % 2000000 == 0:
+        print(f"  {count} processed, {len(route_stops)} routes")
 
-route_stops_list = {k: list(v)[:30] for k, v in route_stops.items()}
+route_stops_dict = {k: list(v) for k, v in route_stops.items()}
+
+print(f"Final: {len(route_stops_dict)} routes")
 
 with open("stops.json", "w", encoding="utf-8") as f:
     json.dump(stops, f, ensure_ascii=False)
@@ -83,6 +91,6 @@ with open("routes.json", "w", encoding="utf-8") as f:
     json.dump(routes, f, ensure_ascii=False)
 
 with open("route_stops.json", "w", encoding="utf-8") as f:
-    json.dump(route_stops_list, f, ensure_ascii=False)
+    json.dump(route_stops_dict, f, ensure_ascii=False)
 
-print(f"Done: {len(stops)} stops, {len(routes)} routes, {len(route_stops_list)} route-stop mappings")
+print("Done!")
