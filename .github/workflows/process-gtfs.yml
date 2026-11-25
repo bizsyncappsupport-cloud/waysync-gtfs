@@ -23,14 +23,11 @@ jobs:
       - name: Download and process GTFS
         run: python process_gtfs.py
 
-      - name: Upload stops
+      - name: Upload all files
         uses: actions/upload-artifact@v4
         with:
-          name: stops
-          path: stops.json
-
-      - name: Upload routes
-        uses: actions/upload-artifact@v4
-        with:
-          name: routes
-          path: routes.json
+          name: gtfs-data
+          path: |
+            stops.json
+            routes.json
+            route_stops.json
